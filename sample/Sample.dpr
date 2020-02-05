@@ -6,7 +6,11 @@ program Sample;
 uses
   System.SysUtils,
   JSON.Types in '..\Src\JSON.Types.pas',
-  JSON in '..\Src\JSON.pas';
+  JSON in '..\Src\JSON.pas',
+  JSON.Parser in '..\Src\JSON.Parser.pas',
+  Providers.IndexBuffer in '..\Src\Providers\Providers.IndexBuffer.pas',
+  Providers.DataBuffer in '..\Src\Providers\Providers.DataBuffer.pas',
+  Providers.Types in '..\Src\Providers\Providers.Types.pas';
 
 const
 JSON_DEMO = '' + '{' + '"Actors": [' + '{' + '"name": "Tom Cruise",' + '"age": 56,' + '"Born At": "Syracuse, NY",' +
@@ -18,9 +22,14 @@ JSON_DEMO = '' + '{' + '"Actors": [' + '{' + '"name": "Tom Cruise",' + '"age": 5
   '"hasChildren": true,' + '"hasGreyHair": false,' + '"children": [' + '"Indio Falconer",' + '"Avri Roel",' +
   '"Exton Elias"' + ']' + '}' + ']' + '}';
 
+var
+  LT: TJSONTokenizer;
+  LData: TDataBuffer;
 begin
   try
-    Writeln(ReadJSON(JSON_DEMO).ToString);
+    LT := TJSONTokenizer.Create;
+    LData:= TDataBuffer.Create(JSON_DEMO);
+    LT.Parse(LData, TIndexBuffer.Create(500, True));
     Readln;
   except
     on E: Exception do

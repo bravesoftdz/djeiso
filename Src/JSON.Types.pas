@@ -12,54 +12,55 @@ type
     function ToString: string;
   end;
 
-  TJSONString = class(TInterfacedObject, IJSONType)
+  TJSONValue = class(TInterfacedObject, IJSONType)
+
+  public
+    function ToString: string; virtual;
+  end;
+
+  TJSONString = class(TJSONValue)
   private
     FValue: string;
   public
     function ToString: string;
-    procedure Parse(AJSON: String);
   end;
 
-  TJSONNumber = class(TInterfacedObject, IJSONType)
+  TJSONNumber = class(TJSONValue)
     FNumber: Double;
   public
     function ToString: string;
-    procedure Parse(AJSON: String);
   end;
 
-  TJSONObject = class(TInterfacedObject, IJSONType)
+  TJSONObject = class(TJSONValue)
   private
     FValue: TDictionary<string, IJSONType>;
   public
     function ToString: string;
     constructor Create;
     destructor Destroy; override;
-    procedure Parse(AJSON: String);
   end;
 
-  TJSONArray = class(TInterfacedObject, IJSONType)
+  TJSONArray = class(TJSONValue)
   private
     FValue: array of IJSONType;
   public
     function ToString: string;
-    procedure Parse(AJSON: String);
   end;
 
-  TJSONBoolean = class(TInterfacedObject, IJSONType)
+  TJSONBoolean = class(TJSONValue)
   private
     FValue: Boolean;
-    const
+
+  const
     TRUE_JSON = 'true';
     FALSE_JSON = 'false';
   public
     function ToString: string;
-    procedure Parse(AJSON: String);
   end;
 
   TJSONNull = class(TInterfacedObject, IJSONType)
   public
     function ToString: string;
-    procedure Parse(AJSON: String);
   end;
 
 function test: IJSONType;
@@ -113,11 +114,6 @@ begin
   inherited;
 end;
 
-procedure TJSONObject.Parse(AJSON: String);
-begin
-
-end;
-
 function TJSONObject.ToString: string;
 var
   LItem: TPair<string, IJSONType>;
@@ -139,11 +135,6 @@ end;
 
 { TJSONBoolean }
 
-procedure TJSONBoolean.Parse(AJSON: String);
-begin
-  FValue := AJSON = 'true';
-end;
-
 function TJSONBoolean.ToString: string;
 begin
   if FValue then
@@ -153,11 +144,6 @@ begin
 end;
 
 { TJSONArray }
-
-procedure TJSONArray.Parse(AJSON: String);
-begin
-
-end;
 
 function TJSONArray.ToString: string;
 var
@@ -181,22 +167,12 @@ end;
 
 { TJSONString }
 
-procedure TJSONString.Parse(AJSON: String);
-begin
-
-end;
-
 function TJSONString.ToString: string;
 begin
   Result := '"' + FValue + '"';
 end;
 
 { TJSONNumber }
-
-procedure TJSONNumber.Parse(AJSON: String);
-begin
-
-end;
 
 function TJSONNumber.ToString: string;
 begin
@@ -205,14 +181,16 @@ end;
 
 { TJSONNull }
 
-procedure TJSONNull.Parse(AJSON: String);
-begin
-//
-end;
-
 function TJSONNull.ToString: string;
 begin
   Result := 'null';
+end;
+
+{ TJSONValue }
+
+function TJSONValue.ToString: string;
+begin
+
 end;
 
 end.
