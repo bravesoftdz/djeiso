@@ -3,12 +3,12 @@ unit JSON.Types;
 interface
 
 uses
-  System.Generics.Collections;
+  System.Generics.Collections, Providers.IndexBuffer, Providers.DataBuffer;
 
 type
   IJSONType = interface
     ['{79948817-3650-45D8-B7C6-CF07BAD98930}']
-
+//    function Add(AValue: IJSONType);
     function ToString: string;
   end;
 
@@ -63,42 +63,28 @@ type
     function ToString: string;
   end;
 
-function test: IJSONType;
+function LoadFromToken(AData: TDataBuffer; AIndexes: TIndexBuffer): IJSONType;
 
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils, Providers.Types;
 
-function test: IJSONType;
+function LoadFromToken(AData: TDataBuffer; AIndexes: TIndexBuffer): IJSONType;
 var
-  LTest: TJSONObject;
-  LTemp: IJSONType;
+  LIndex: Integer;
+  LResponse: IJSONType;
 begin
-  LTest := TJSONObject.Create;
-  LTest.FValue.Add('Null', TJSONNull.Create);
+  if AIndexes.&Type[0] = TJSONTokens.JSON_OBJECT_START then
+    LResponse := TJSONObject.Create
+  else
+    LResponse := TJSONArray.Create;
+    TJSONArray(LResponse).
+  for LIndex := 1 to AIndexes.Count - 1 do
+  begin
 
-  LTemp := TJSONString.Create;
-  TJSONString(LTemp).FValue := 'Rodrigo Bernardi';
-  LTest.FValue.Add('String', LTemp);
+  end;
 
-  LTemp := TJSONBoolean.Create;
-  TJSONBoolean(LTemp).FValue := True;
-  LTest.FValue.Add('bool', LTemp);
-
-  LTemp := TJSONNumber.Create;
-  TJSONNumber(LTemp).FNumber := 1.23456;
-  LTest.FValue.Add('num', LTemp);
-
-  LTemp := TJSONNumber.Create;
-  TJSONNumber(LTemp).FNumber := 123456;
-  LTest.FValue.Add('num_int', LTemp);
-
-  LTemp := TJSONArray.Create;
-  TJSONArray(LTemp).FValue := [LTest.FValue['bool'], LTest.FValue['String']];
-  LTest.FValue.Add('array', LTemp);
-
-  Result := LTest;
 end;
 
 { TJSONObject }

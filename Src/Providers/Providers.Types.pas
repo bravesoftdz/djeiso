@@ -2,8 +2,10 @@ unit Providers.Types;
 
 interface
 
+{$SCOPEDENUMS ON}
+
 type
-  TJSONTokens = (JSON_OBJECT_START, //
+  TJSONTokens = (None, JSON_OBJECT_START, //
     JSON_OBJECT_END, // }
     JSON_ARRAY_START, // [
     JSON_ARRAY_VALUE_STRING, //
@@ -20,7 +22,7 @@ type
     JSON_PROPERTY_VALUE_NULL //
     );
 
-  TJSONStates = (FIELD_NAME, FIELD_VALUE, &OBJECT, &ARRAY);
+  TJSONStates = (None, FIELD_NAME, FIELD_VALUE, &OBJECT, &ARRAY);
 
 implementation
 

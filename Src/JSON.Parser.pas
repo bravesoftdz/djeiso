@@ -37,6 +37,7 @@ type
     procedure ParseTrue(AJSON: TDataBuffer; AIndexBuffer: TIndexBuffer);
     procedure ParseFalse(AJSON: TDataBuffer; AIndexBuffer: TIndexBuffer);
     procedure ParseNull(AJSON: TDataBuffer; AIndexBuffer: TIndexBuffer);
+    procedure ParseString(AJSON: TDataBuffer; AIndexBuffer: TIndexBuffer);
 
     procedure SetElementDataLength1(AIndexBuffer: TIndexBuffer; AType: TJSONTokens; APosition: Integer);
     procedure SetElementDataNoLength(AIndexBuffer: TIndexBuffer; AType: TJSONTokens; APosition: Integer);
@@ -62,9 +63,9 @@ var
 begin
   Context.PutState(TJSONStates.FIELD_NAME);
 
-  while Context.DataPosition < AJSON.Count - 1 do
+  while Context.DataPosition <= AJSON.Count do
   begin
-    LChar := AJSON.Data[Context.DataPosition];
+    LChar := GetChar(AJSON, Context.DataPosition);
 
     case LChar of
       '{':
@@ -113,12 +114,13 @@ begin
           Context.IncElementIndex;
         end;
 
-      '0'.. '9':
+      '0' .. '9':
         begin
-           ParseNumber(AJSON, AIndexBuffer);
-           Context.IncElementIndex;
+          ParseNumber(AJSON, AIndexBuffer);
+          Context.IncElementIndex;
         end;
-      ':': Context.PutState(TJSONStates.FIELD_VALUE);
+      ':':
+        Context.PutState(TJSONStates.FIELD_VALUE);
       ',':
         begin
           if Context.StateStack[Context.StateIndex - 1] = TJSONStates.&ARRAY then
@@ -126,8 +128,11 @@ begin
           else
             Context.PutState(TJSONStates.FIELD_NAME);
         end;
-
-
+      '"':
+        begin
+          ParseString(AJSON, AIndexBuffer);
+          Context.IncElementIndex;
+        end;
 
     end;
 
@@ -140,15 +145,13 @@ var
   LCurrentPosition: Integer;
 begin
   LCurrentPosition := Context.DataPosition;
-  if (GetChar(AJSON, LCurrentPosition + 1) = 'a')
-    and (GetChar(AJSON, LCurrentPosition + 2) = 'l')
-    and (GetChar(AJSON, LCurrentPosition + 3) = 's')
-    and (GetChar(AJSON, LCurrentPosition + 4) = 'e') then
+  if (GetChar(AJSON, LCurrentPosition + 1) = 'a') and (GetChar(AJSON, LCurrentPosition + 2) = 'l') and
+    (GetChar(AJSON, LCurrentPosition + 3) = 's') and (GetChar(AJSON, LCurrentPosition + 4) = 'e') then
   begin
     if Context.StateStack[Context.StateIndex - 1] = TJSONStates.&OBJECT then
-        setElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_BOOLEAN, LCurrentPosition, 5)
+      SetElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_BOOLEAN, LCurrentPosition, 5)
     else
-      setElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_BOOLEAN, LCurrentPosition, 5);
+      SetElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_BOOLEAN, LCurrentPosition, 5);
 
     Context.IncDataPosition(4);
   end;
@@ -160,12 +163,11 @@ var
   LCurrentPosition: Integer;
 begin
   LCurrentPosition := Context.DataPosition;
-  if (GetChar(AJSON, LCurrentPosition + 1) = 'u')
-    and (GetChar(AJSON, LCurrentPosition + 2) = 'l')
-    and (GetChar(AJSON, LCurrentPosition + 3) = 'l') then
+  if (GetChar(AJSON, LCurrentPosition + 1) = 'u') and (GetChar(AJSON, LCurrentPosition + 2) = 'l') and
+    (GetChar(AJSON, LCurrentPosition + 3) = 'l') then
   begin
     if Context.StateStack[Context.StateIndex - 1] = TJSONStates.&OBJECT then
-        SetElementDataNoLength(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_NULL, LCurrentPosition)
+      SetElementDataNoLength(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_NULL, LCurrentPosition)
     else
       SetElementDataNoLength(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_NULL, LCurrentPosition);
 
@@ -183,17 +185,72 @@ begin
   while not IsEndOfNumber do
   begin
     Inc(LTempPosition);
-    if not (AJSON.Data[LTempPosition] in ['0' .. '1', '.']) then
+    if not(AJSON.Data[LTempPosition] in ['0' .. '1', '.']) then
       IsEndOfNumber := True;
   end;
   if Context.StateStack[Context.StateIndex - 1] = TJSONStates.&OBJECT then
     SetElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_NUMBER, Context.DataPosition,
       LTempPosition - Context.DataPosition)
   else
-    SetElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_BOOLEAN, Context.DataPosition,
+    SetElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_NUMBER, Context.DataPosition,
       LTempPosition - Context.DataPosition);
 
   Context.IncDataPosition(LTempPosition - Context.DataPosition - 1);
+end;
+
+procedure TJSONTokenizer.ParseString(AJSON: TDataBuffer; AIndexBuffer: TIndexBuffer);
+var
+  LTempPosition: Int64;
+  LHasEncodedChar: Boolean;
+  LEndsStringFound: Boolean;
+begin
+  LTempPosition := Context.DataPosition;
+  LHasEncodedChar := False;
+  LEndsStringFound := False;
+
+  while not LEndsStringFound do
+  begin
+    Inc(LTempPosition);
+    case GetChar(AJSON, LTempPosition) of
+      '"':
+        begin
+          LEndsStringFound := GetChar(AJSON, LTempPosition - 1) <> '\';
+        end;
+      '\':
+        begin
+          LHasEncodedChar := True;
+        end;
+    end;
+  end;
+
+  if Context.StateStack[Context.StateIndex - 1] = TJSONStates.&OBJECT then
+  begin
+    if Context.StateStack[Context.StateIndex] = TJSONStates.FIELD_NAME then
+    begin
+      SetElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_NAME, Context.DataPosition + 1,
+        LTempPosition - Context.DataPosition - 1);
+    end
+    else
+    begin
+      if LHasEncodedChar then
+        SetElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_STRING_ENC, Context.DataPosition + 1,
+          LTempPosition - Context.DataPosition - 1)
+      else
+        SetElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_STRING, Context.DataPosition + 1,
+          LTempPosition - Context.DataPosition - 1);
+    end;
+  end
+  else
+  begin
+    if LHasEncodedChar then
+      SetElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_STRING_ENC, Context.DataPosition + 1,
+        LTempPosition - Context.DataPosition - 1)
+    else
+      SetElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_STRING, Context.DataPosition + 1,
+        LTempPosition - Context.DataPosition - 1);
+  end;
+  
+  Context.IncDataPosition(LTempPosition - Context.DataPosition);
 end;
 
 procedure TJSONTokenizer.ParseTrue(AJSON: TDataBuffer; AIndexBuffer: TIndexBuffer);
@@ -201,20 +258,20 @@ var
   LCurrentPosition: Integer;
 begin
   LCurrentPosition := Context.DataPosition;
-  if (GetChar(AJSON, LCurrentPosition + 1) = 'r')
-    and (GetChar(AJSON, LCurrentPosition + 2) = 'u')
-    and (GetChar(AJSON, LCurrentPosition + 3) = 'e') then
+  if (GetChar(AJSON, LCurrentPosition + 1) = 'r') and (GetChar(AJSON, LCurrentPosition + 2) = 'u') and
+    (GetChar(AJSON, LCurrentPosition + 3) = 'e') then
   begin
     if Context.StateStack[Context.StateIndex - 1] = TJSONStates.&OBJECT then
-        setElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_BOOLEAN, LCurrentPosition, 4)
+      SetElementData(AIndexBuffer, TJSONTokens.JSON_PROPERTY_VALUE_BOOLEAN, LCurrentPosition, 4)
     else
-      setElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_BOOLEAN, LCurrentPosition, 4);
+      SetElementData(AIndexBuffer, TJSONTokens.JSON_ARRAY_VALUE_BOOLEAN, LCurrentPosition, 4);
 
     Context.IncDataPosition(3);
   end;
 end;
 
-procedure TJSONTokenizer.SetElementData(AIndexBuffer: TIndexBuffer; AType: TJSONTokens; APosition: Integer; ALength: Integer);
+procedure TJSONTokenizer.SetElementData(AIndexBuffer: TIndexBuffer; AType: TJSONTokens; APosition: Integer;
+  ALength: Integer);
 begin
   AIndexBuffer.&Type[Context.ElementIndex] := AType;
   AIndexBuffer.Position[Context.ElementIndex] := APosition;
